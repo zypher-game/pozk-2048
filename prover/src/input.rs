@@ -1,6 +1,7 @@
 use std::{collections::HashMap, str::FromStr};
 
-use num_bigint::BigInt;
+use ethabi::{decode, encode, ethereum_types::U256, ParamType, Token};
+use num_bigint::{BigInt, Sign};
 use serde::{Deserialize, Serialize};
 use zypher_circom_compat::Input;
 
@@ -12,65 +13,117 @@ pub struct Game2048Input {
     pub direction: Vec<u8>,
     pub address: String,
     pub nonce: String,
-    pub step: u8,
-    pub step_after: u8,
+    pub step: u64,
+    pub step_after: u64,
 }
 
 impl Game2048Input {
     #[allow(dead_code)]
     pub fn to_hex(&self) -> String {
-        let bytes = bincode::serialize(self).unwrap();
-        hex::encode(&bytes)
-    }
-
-    pub fn from_hex(hex: String) -> Result<Self, anyhow::Error> {
-        let bytes = hex::decode(hex)?;
-        let input = bincode::deserialize(&bytes)?;
-        Ok(input)
-    }
-}
-
-impl TryInto<Input> for Game2048Input {
-    type Error = anyhow::Error;
-
-    fn try_into(self) -> Result<Input, Self::Error> {
         let mut board = vec![];
-        for x in self.board.iter().flatten() {
-            board.push(BigInt::from(*x))
+        for x in self.board.iter() {
+            board.push(Token::Bytes(x.to_vec()));
         }
 
         let mut packed_board = vec![];
         for x in self.packed_board.iter() {
-            packed_board.push(BigInt::from_str(x)?)
+            let t = BigInt::from_str(x).unwrap().to_bytes_be().1;
+            packed_board.push(Token::Uint(U256::from_big_endian(&t)))
         }
 
-        let mut direction = vec![];
-        for x in self.direction {
-            direction.push(BigInt::from(x))
-        }
+        let packed_dir = BigInt::from_str(&self.packed_dir).unwrap().to_bytes_be().1;
+        let packed_dir = Token::Uint(U256::from_big_endian(packed_dir.as_slice()));
 
-        let packed_dir = BigInt::from_str(&self.packed_dir)?;
-        let address = BigInt::from_str(&self.address)?;
-        let nonce = BigInt::from_str(&self.nonce)?;
-        let step = BigInt::from(self.step);
-        let step_after = BigInt::from(self.step_after);
+        let address = BigInt::from_str(&self.address).unwrap().to_bytes_be().1;
+        let address = Token::Uint(U256::from_big_endian(address.as_slice()));
 
-        let mut maps = HashMap::new();
-        maps.insert("board".to_string(), board);
-        maps.insert("packedBoard".to_string(), packed_board);
-        maps.insert("packedDir".to_string(), vec![packed_dir]);
-        maps.insert("direction".to_string(), direction);
-        maps.insert("address".to_string(), vec![address]);
-        maps.insert("step".to_string(), vec![step]);
-        maps.insert("stepAfter".to_string(), vec![step_after]);
-        maps.insert("nonce".to_string(), vec![nonce]);
+        let nonce = BigInt::from_str(&self.nonce).unwrap().to_bytes_be().1;
+        let nonce = Token::Uint(U256::from_big_endian(nonce.as_slice()));
 
-        Ok(Input { maps })
+        let direction = Token::Bytes(self.direction.clone());
+
+        let step = BigInt::from(self.step).to_bytes_be().1;
+        let step = Token::Uint(U256::from_big_endian(step.as_slice()));
+
+        let step_after = BigInt::from(self.step_after).to_bytes_be().1;
+        let step_after = Token::Uint(U256::from_big_endian(step_after.as_slice()));
+
+        let bytes = encode(&[
+            Token::Array(board),
+            Token::Array(packed_board),
+            packed_dir,
+            direction,
+            address,
+            nonce,
+            step,
+            step_after,
+        ]);
+        format!("0x{}", hex::encode(&bytes))
     }
+}
+
+pub fn decode_prove_input(bytes: &[u8]) -> Result<Input, anyhow::Error> {
+    let input_tokens = decode(
+        &[
+            ParamType::Array(Box::new(ParamType::Bytes)),
+            ParamType::Array(Box::new(ParamType::Uint(256))),
+            ParamType::Uint(256),
+            ParamType::Bytes,
+            ParamType::Uint(256),
+            ParamType::Uint(256),
+            ParamType::Uint(256),
+            ParamType::Uint(256),
+        ],
+        bytes,
+    )?;
+
+    let f_uint = |token: Token| -> BigInt {
+        let mut bytes = [0u8; 32];
+        token.into_uint().unwrap().to_big_endian(&mut bytes);
+        BigInt::from_bytes_be(Sign::Plus, &bytes)
+    };
+
+    let f_array_bytes = |token: Token| -> Vec<BigInt> {
+        let token = token.into_array().unwrap();
+        let mut tmp = vec![];
+        for x in token {
+            for y in x.into_bytes().unwrap() {
+                tmp.push(BigInt::from(y))
+            }
+        }
+        tmp
+    };
+
+    let board = f_array_bytes(input_tokens[0].clone());
+    let mut packed_board = vec![];
+    for x in input_tokens[1].clone().into_array().unwrap() {
+        packed_board.push(f_uint(x))
+    }
+    let packed_dir = f_uint(input_tokens[2].clone());
+    let direction = input_tokens[3].clone().into_bytes().unwrap();
+    let direction = direction.iter().map(|x| BigInt::from(*x)).collect();
+    let address = f_uint(input_tokens[4].clone());
+    let nonce = f_uint(input_tokens[5].clone());
+    let step = f_uint(input_tokens[6].clone());
+    let step_after = f_uint(input_tokens[7].clone());
+
+    let mut maps = HashMap::new();
+    maps.insert("board".to_string(), board);
+    maps.insert("packedBoard".to_string(), packed_board);
+    maps.insert("packedDir".to_string(), vec![packed_dir]);
+    maps.insert("direction".to_string(), direction);
+    maps.insert("address".to_string(), vec![address]);
+    maps.insert("step".to_string(), vec![step]);
+    maps.insert("stepAfter".to_string(), vec![step_after]);
+    maps.insert("nonce".to_string(), vec![nonce]);
+
+    Ok(Input { maps })
 }
 
 #[cfg(test)]
 mod test {
+    use crate::input::decode_prove_input;
+
     use super::Game2048Input;
 
     #[test]
@@ -94,7 +147,9 @@ mod test {
         let input: Game2048Input = serde_json::from_str(input).unwrap();
         let hex = input.to_hex();
         println!("{}", hex);
-        let expect = Game2048Input::from_hex(hex).unwrap();
-        assert_eq!(input, expect)
+
+        let input_hex = hex.trim_start_matches("0x");
+        let input_bytes = hex::decode(input_hex).expect("Unable to decode input file");
+        decode_prove_input(&input_bytes).expect("Unable to decode input");
     }
 }

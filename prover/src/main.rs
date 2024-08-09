@@ -3,7 +3,7 @@ use std::fs::{read_to_string, write};
 use ark_ec::AffineRepr;
 use ark_ff::{BigInteger, PrimeField};
 use ethabi::{encode, ethereum_types::U256, Token};
-use input::Game2048Input;
+use input::decode_prove_input;
 use zypher_circom_compat::{init_config, prove};
 
 mod input;
@@ -13,6 +13,16 @@ fn parse_filed_to_token<F: PrimeField>(f: &F) -> Token {
     Token::Uint(U256::from_big_endian(&bytes))
 }
 
+/*
+export INPUT="./materials/input.bin"
+export OUTPUT="./materials/output.bin"
+export PROOF="./materials/proof.bin"
+export WASM="./materials/game2048_60.wasm"
+export R1CS="./materials/game2048_60.r1cs"
+export ZKEY="./materials/game2048_60.zkey"
+
+cargo run --release
+*/
 fn main() {
     let input_path = std::env::var("INPUT").expect("env INPUT missing");
     let output_path = std::env::var("OUTPUT").expect("env OUTPUT missing");
@@ -23,7 +33,11 @@ fn main() {
     let zkey_path = std::env::var("ZKEY").expect("env ZKEY missing");
 
     let input_hex = read_to_string(input_path).expect("Unable to read input file");
-    let input = Game2048Input::from_hex(input_hex).expect("Unable to decode input");
+    let input_bytes =
+        hex::decode(input_hex.trim_start_matches("0x")).expect("Unable to decode input file");
+    let input = decode_prove_input(&input_bytes).expect("Unable to decode input");
+
+    println!("{:?}", input.maps);
 
     init_config(&wasm_path, &r1cs_path, &zkey_path);
 
