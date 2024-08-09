@@ -1,12 +1,15 @@
-use std::fs::{read_to_string, write};
+mod input;
 
 use ark_ec::AffineRepr;
 use ark_ff::{BigInteger, PrimeField};
 use ethabi::{encode, ethereum_types::U256, Token};
 use input::decode_prove_input;
-use zypher_circom_compat::{init_config, prove};
+use std::fs::{read_to_string, write};
+use zypher_circom_compat::{init_from_bytes, prove};
 
-mod input;
+const WASM_BYTES: &[u8] = include_bytes!("../materials/game2048_60.wasm");
+const R1CS_BYTES: &[u8] = include_bytes!("../materials/game2048_60.r1cs");
+const ZKEY_BYTES: &[u8] = include_bytes!("../materials/game2048_60.zkey");
 
 fn parse_filed_to_token<F: PrimeField>(f: &F) -> Token {
     let bytes = f.into_bigint().to_bytes_be();
@@ -28,19 +31,12 @@ fn main() {
     let output_path = std::env::var("OUTPUT").expect("env OUTPUT missing");
     let proof_path = std::env::var("PROOF").expect("env PROOF missing");
 
-    let wasm_path = std::env::var("WASM").expect("env WASM missing");
-    let r1cs_path = std::env::var("R1CS").expect("env R1CS missing");
-    let zkey_path = std::env::var("ZKEY").expect("env ZKEY missing");
-
     let input_hex = read_to_string(input_path).expect("Unable to read input file");
     let input_bytes =
         hex::decode(input_hex.trim_start_matches("0x")).expect("Unable to decode input file");
     let input = decode_prove_input(&input_bytes).expect("Unable to decode input");
 
-    println!("{:?}", input.maps);
-
-    init_config(&wasm_path, &r1cs_path, &zkey_path);
-
+    init_from_bytes(WASM_BYTES, R1CS_BYTES, ZKEY_BYTES);
     let (pi, proof) = prove(input).unwrap();
 
     let mut pi_token = vec![];
