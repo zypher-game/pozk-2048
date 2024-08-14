@@ -14,6 +14,6 @@ ethabi = "18.0"
 ark-bn254 = { version = "0.4", features = ["curve"] }
 ark-ff = { version = "0.4", features = ["asm"] }
 ark-ec = { version = "0.4" }
-zypher-circom-compat = { git = "https://github.com/zypher-game/zypher-circom-compat", branch = "verify" }
+zypher-circom-compat = { git = "https://github.com/zypher-game/zypher-circom-compat" }
 
 
