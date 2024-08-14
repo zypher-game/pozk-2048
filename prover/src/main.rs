@@ -13,7 +13,6 @@ const ZKEY_BYTES: &[u8] = include_bytes!("../materials/game2048_60.zkey");
 
 fn parse_filed_to_token<F: PrimeField>(f: &F) -> Token {
     let bytes = f.into_bigint().to_bytes_be();
-    println!("0x{}", hex::encode(&bytes));
     Token::Uint(U256::from_big_endian(&bytes))
 }
 
@@ -45,10 +44,10 @@ fn main() {
     proof_token.push(parse_filed_to_token(ay));
 
     let (bx, by) = proof.b.xy().unwrap();
-    proof_token.push(parse_filed_to_token(&bx.c0));
     proof_token.push(parse_filed_to_token(&bx.c1));
-    proof_token.push(parse_filed_to_token(&by.c0));
+    proof_token.push(parse_filed_to_token(&bx.c0));
     proof_token.push(parse_filed_to_token(&by.c1));
+    proof_token.push(parse_filed_to_token(&by.c0));
 
     let (cx, cy) = proof.c.xy().unwrap();
     proof_token.push(parse_filed_to_token(cx));

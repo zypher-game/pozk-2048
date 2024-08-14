@@ -1,4 +1,4 @@
-use std::{collections::HashMap, str::FromStr};
+use std::collections::HashMap;
 
 use ethabi::{decode, encode, ethereum_types::U256, ParamType, Token};
 use num_bigint::{BigInt, Sign};
@@ -8,12 +8,15 @@ use zypher_circom_compat::Input;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Game2048Input {
     pub board: Vec<Vec<u8>>,
+    #[serde(rename = "packedBoard")]
     pub packed_board: Vec<String>,
+    #[serde(rename = "packedDir")]
     pub packed_dir: String,
     pub direction: Vec<u8>,
     pub address: String,
     pub nonce: String,
     pub step: u64,
+    #[serde(rename = "stepAfter")]
     pub step_after: u64,
 }
 
@@ -27,26 +30,15 @@ impl Game2048Input {
 
         let mut packed_board = vec![];
         for x in self.packed_board.iter() {
-            let t = BigInt::from_str(x).unwrap().to_bytes_be().1;
-            packed_board.push(Token::Uint(U256::from_big_endian(&t)))
+            packed_board.push(Token::Uint(U256::from_dec_str(x).unwrap()))
         }
 
-        let packed_dir = BigInt::from_str(&self.packed_dir).unwrap().to_bytes_be().1;
-        let packed_dir = Token::Uint(U256::from_big_endian(packed_dir.as_slice()));
-
-        let address = BigInt::from_str(&self.address).unwrap().to_bytes_be().1;
-        let address = Token::Uint(U256::from_big_endian(address.as_slice()));
-
-        let nonce = BigInt::from_str(&self.nonce).unwrap().to_bytes_be().1;
-        let nonce = Token::Uint(U256::from_big_endian(nonce.as_slice()));
-
+        let packed_dir = Token::Uint(U256::from_dec_str(&self.packed_dir).unwrap());
+        let address = Token::Uint(U256::from_dec_str(&self.address).unwrap());
+        let nonce = Token::Uint(U256::from_dec_str(&self.nonce).unwrap());
         let direction = Token::Bytes(self.direction.clone());
-
-        let step = BigInt::from(self.step).to_bytes_be().1;
-        let step = Token::Uint(U256::from_big_endian(step.as_slice()));
-
-        let step_after = BigInt::from(self.step_after).to_bytes_be().1;
-        let step_after = Token::Uint(U256::from_big_endian(step_after.as_slice()));
+        let step = Token::Uint(U256::from(self.step));
+        let step_after = Token::Uint(U256::from(self.step_after));
 
         let bytes = encode(&[
             Token::Array(board),
@@ -134,22 +126,22 @@ mod test {
                 [0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0],
                 [0, 2, 4, 6, 0, 1, 2, 4, 0, 0, 0, 5, 0, 0, 1, 3]
             ],
-            "packed_board": ["35218731827200", "2515675923718842875939"],
-            "packed_dir": "311800516178808354245949615821275955",
+            "packedBoard": ["35218731827200", "2515675923718842875939"],
+            "packedDir": "311800516178808354245949615821275955",
             "direction": [0, 3, 3, 0, 0, 0, 3, 0, 3, 3, 0, 3, 3, 0, 3, 0, 2, 0, 3, 3, 0, 2, 0, 3, 0, 0, 3, 0, 2, 0, 3, 3, 0, 0, 3, 0, 3, 3, 0, 3, 3, 3, 3, 3, 0, 0, 3, 2, 3, 3, 0, 3, 3, 0, 0, 3, 0, 3, 0, 3],
             "address": "6789",
             "step": 0,
-            "step_after": 60,
+            "stepAfter": 60,
             "nonce": "456"
         }
         "##;
 
         let input: Game2048Input = serde_json::from_str(input).unwrap();
         let hex = input.to_hex();
-        //println!("{}", hex);
+        println!("{}", hex);
 
         let input_hex = hex.trim_start_matches("0x");
         let input_bytes = hex::decode(input_hex).expect("Unable to decode input file");
-        let a = decode_prove_input(&input_bytes).expect("Unable to decode input");
+        decode_prove_input(&input_bytes).expect("Unable to decode input");
     }
 }
