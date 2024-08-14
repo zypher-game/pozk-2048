@@ -20,7 +20,7 @@ async function deployContractWithProxy(name, params=[]) {
 }
 
 async function deploy() {
-  const shuffle = await deployContractWithProxy("Shuffle", []);
+  const shuffle = await deployContractWithProxy("Game2048Step60CircomVerifier", []);
 }
 
 async function main() {

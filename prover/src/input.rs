@@ -146,10 +146,10 @@ mod test {
 
         let input: Game2048Input = serde_json::from_str(input).unwrap();
         let hex = input.to_hex();
-        println!("{}", hex);
+        //println!("{}", hex);
 
         let input_hex = hex.trim_start_matches("0x");
         let input_bytes = hex::decode(input_hex).expect("Unable to decode input file");
-        decode_prove_input(&input_bytes).expect("Unable to decode input");
+        let a = decode_prove_input(&input_bytes).expect("Unable to decode input");
     }
 }

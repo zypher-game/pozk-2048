@@ -30,6 +30,7 @@ contract Game2048Step60CircomVerifier is Initializable, OwnableUpgradeable, ERC1
     uint256 constant deltay1 = 2489150813694632276856612536291067589951037720943945513539803655879400209720;
     uint256 constant deltay2 = 19276775233044448710962620944521828097017666380262997869520596730242392735386;
 
+
     uint256 constant IC0x = 11128506941297822501254433205268267539034243891395423859217363107759883248654;
     uint256 constant IC0y = 3872357426528296580277109136192992878606687753367907579323499892857106028023;
 
@@ -53,6 +54,7 @@ contract Game2048Step60CircomVerifier is Initializable, OwnableUpgradeable, ERC1
 
     uint256 constant IC7x = 7041501423034499493782096928158436615884067989639971865426967705870706974226;
     uint256 constant IC7y = 2171352084991153726633202556319966754825846942596088172174758070182697960381;
+
 
     // Memory data
     uint16 constant pVk = 0;
@@ -83,10 +85,13 @@ contract Game2048Step60CircomVerifier is Initializable, OwnableUpgradeable, ERC1
     function verify(bytes calldata publics, bytes calldata proof) external view returns (bool) {
         uint[7] memory _pubSignals = abi.decode(publics, (uint[7]));
         (uint[2] memory _pA, uint[2][2] memory _pB, uint[2] memory _pC) = abi.decode(proof, (uint[2], uint[2][2], uint[2]));
+        return this.verifyProof(_pA, _pB, _pC, _pubSignals);
+    }
 
+    function verifyProof(uint[2] calldata _pA, uint[2][2] calldata _pB, uint[2] calldata _pC, uint[7] calldata _pubSignals) public view returns (bool) {
         assembly {
             function checkField(v) {
-                if iszero(lt(v, q)) {
+                if iszero(lt(v, r)) {
                     mstore(0, 0)
                     return(0, 0x20)
                 }
@@ -215,7 +220,7 @@ contract Game2048Step60CircomVerifier is Initializable, OwnableUpgradeable, ERC1
             let isValid := checkPairing(_pA, _pB, _pC, _pubSignals, pMem)
 
             mstore(0, isValid)
-             return(0, 0x20)
+            return(0, 0x20)
          }
      }
  }

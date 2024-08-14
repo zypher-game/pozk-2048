@@ -5,7 +5,7 @@ use ark_ff::{BigInteger, PrimeField};
 use ethabi::{encode, ethereum_types::U256, Token};
 use input::decode_prove_input;
 use std::fs::{read_to_string, write};
-use zypher_circom_compat::{init_from_bytes, prove};
+use zypher_circom_compat::{init_from_bytes, prove, verify};
 
 const WASM_BYTES: &[u8] = include_bytes!("../materials/game2048_60.wasm");
 const R1CS_BYTES: &[u8] = include_bytes!("../materials/game2048_60.r1cs");
@@ -13,18 +13,12 @@ const ZKEY_BYTES: &[u8] = include_bytes!("../materials/game2048_60.zkey");
 
 fn parse_filed_to_token<F: PrimeField>(f: &F) -> Token {
     let bytes = f.into_bigint().to_bytes_be();
+    println!("0x{}", hex::encode(&bytes));
     Token::Uint(U256::from_big_endian(&bytes))
 }
 
 /*
-export INPUT="./materials/input.bin"
-export OUTPUT="./materials/output.bin"
-export PROOF="./materials/proof.bin"
-export WASM="./materials/game2048_60.wasm"
-export R1CS="./materials/game2048_60.r1cs"
-export ZKEY="./materials/game2048_60.zkey"
-
-cargo run --release
+INPUT=test_input OUTPUT=test_output PROOF=test_proof cargo run --release
 */
 fn main() {
     let input_path = std::env::var("INPUT").expect("env INPUT missing");
@@ -38,6 +32,7 @@ fn main() {
 
     init_from_bytes(WASM_BYTES, R1CS_BYTES, ZKEY_BYTES);
     let (pi, proof) = prove(input).unwrap();
+    assert!(verify(&pi, &proof).unwrap());
 
     let mut pi_token = vec![];
     for x in pi.iter() {
@@ -49,11 +44,11 @@ fn main() {
     proof_token.push(parse_filed_to_token(ax));
     proof_token.push(parse_filed_to_token(ay));
 
-    let (ax, ay) = proof.b.xy().unwrap();
-    proof_token.push(parse_filed_to_token(&ax.c0));
-    proof_token.push(parse_filed_to_token(&ax.c1));
-    proof_token.push(parse_filed_to_token(&ay.c0));
-    proof_token.push(parse_filed_to_token(&ay.c1));
+    let (bx, by) = proof.b.xy().unwrap();
+    proof_token.push(parse_filed_to_token(&bx.c0));
+    proof_token.push(parse_filed_to_token(&bx.c1));
+    proof_token.push(parse_filed_to_token(&by.c0));
+    proof_token.push(parse_filed_to_token(&by.c1));
 
     let (cx, cy) = proof.c.xy().unwrap();
     proof_token.push(parse_filed_to_token(cx));
