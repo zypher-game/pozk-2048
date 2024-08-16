@@ -2,11 +2,15 @@ mod input;
 
 use input::decode_prove_input;
 use std::fs::{read_to_string, write};
-use zypher_circom_compat::{init_from_bytes, prove, verify, proofs_to_abi_bytes};
+use zypher_circom_compat::bls12_381::{init_from_bytes, prove, verify, proofs_to_abi_bytes};
 
-const WASM_BYTES: &[u8] = include_bytes!("../materials/game2048_60.wasm");
-const R1CS_BYTES: &[u8] = include_bytes!("../materials/game2048_60.r1cs");
-const ZKEY_BYTES: &[u8] = include_bytes!("../materials/game2048_60.zkey");
+// const WASM_BYTES: &[u8] = include_bytes!("../materials/game2048_60.wasm");
+// const R1CS_BYTES: &[u8] = include_bytes!("../materials/game2048_60.r1cs");
+// const ZKEY_BYTES: &[u8] = include_bytes!("../materials/game2048_60.zkey");
+
+const WASM_BYTES: &[u8] = include_bytes!("../materials/game2048_60_bls.wasm");
+const R1CS_BYTES: &[u8] = include_bytes!("../materials/game2048_60_bls.r1cs");
+const ZKEY_BYTES: &[u8] = include_bytes!("../materials/game2048_60_bls.zkey");
 
 /// INPUT=test_input OUTPUT=test_output PROOF=test_proof cargo run --release
 fn main() {
