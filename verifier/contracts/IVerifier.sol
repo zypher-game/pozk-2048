@@ -2,6 +2,9 @@
 pragma solidity ^0.8.20;
 
 interface IVerifier {
+    /// prover name
+    function name() external view returns (string memory);
+
     function verify(bytes calldata publics, bytes calldata proof) external view returns (bool);
 
     /// show how to serialize/deseriaze the inputs params

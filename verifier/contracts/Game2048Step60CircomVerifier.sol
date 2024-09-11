@@ -5,10 +5,9 @@ import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-import "./IProver.sol";
 import "./IVerifier.sol";
 
-contract Game2048Step60CircomVerifier is Initializable, OwnableUpgradeable, ERC165, IProver, IVerifier {
+contract Game2048Step60CircomVerifier is Initializable, OwnableUpgradeable, ERC165, IVerifier {
     // Scalar field size
     uint256 constant r    = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
     // Base field size
@@ -63,7 +62,7 @@ contract Game2048Step60CircomVerifier is Initializable, OwnableUpgradeable, ERC1
     uint16 constant pLastMem = 896;
 
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC165) returns (bool) {
-        return interfaceId == type(IProver).interfaceId || interfaceId == type(IVerifier).interfaceId || super.supportsInterface(interfaceId);
+        return interfaceId == type(IVerifier).interfaceId || super.supportsInterface(interfaceId);
     }
 
     function name() external view returns (string memory) {
@@ -73,7 +72,7 @@ contract Game2048Step60CircomVerifier is Initializable, OwnableUpgradeable, ERC1
     /// show how to serialize/deseriaze the inputs params
     /// e.g. "uint256,bytes32,string,bytes32[],address[],ipfs"
     function inputs() external pure returns (string memory) {
-        return "uint256[]";
+        return "[bytes[],uint256[],uint256,bytes,uint256,uint256,uint256,uint256]";
     }
 
     /// show how to serialize/deserialize the publics params
