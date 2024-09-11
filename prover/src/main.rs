@@ -2,18 +2,19 @@ mod input;
 
 use input::decode_prove_input;
 use std::fs::{read_to_string, write};
-use zypher_circom_compat::bls12_381::{init_from_bytes, prove, verify, proofs_to_abi_bytes};
+use ark_circom::zkp::{init_bn254_from_bytes, prove_bn254, verify_bn254, proofs_to_abi_bytes};
 
-// const WASM_BYTES: &[u8] = include_bytes!("../materials/game2048_60.wasm");
-// const R1CS_BYTES: &[u8] = include_bytes!("../materials/game2048_60.r1cs");
-// const ZKEY_BYTES: &[u8] = include_bytes!("../materials/game2048_60.zkey");
+const WASM_BYTES: &[u8] = include_bytes!("../materials/game2048_60.wasm");
+const R1CS_BYTES: &[u8] = include_bytes!("../materials/game2048_60.r1cs");
+const ZKEY_BYTES: &[u8] = include_bytes!("../materials/game2048_60.zkey");
 
-const WASM_BYTES: &[u8] = include_bytes!("../materials/game2048_60_bls.wasm");
-const R1CS_BYTES: &[u8] = include_bytes!("../materials/game2048_60_bls.r1cs");
-const ZKEY_BYTES: &[u8] = include_bytes!("../materials/game2048_60_bls.zkey");
+// const WASM_BYTES: &[u8] = include_bytes!("../materials/game2048_60_bls.wasm");
+// const R1CS_BYTES: &[u8] = include_bytes!("../materials/game2048_60_bls.r1cs");
+// const ZKEY_BYTES: &[u8] = include_bytes!("../materials/game2048_60_bls.zkey");
 
 /// INPUT=test_input OUTPUT=test_output PROOF=test_proof cargo run --release
-fn main() {
+#[tokio::main]
+async fn main() {
     let input_path = std::env::var("INPUT").expect("env INPUT missing");
     let output_path = std::env::var("OUTPUT").expect("env OUTPUT missing");
     let proof_path = std::env::var("PROOF").expect("env PROOF missing");
@@ -23,9 +24,9 @@ fn main() {
         hex::decode(input_hex.trim_start_matches("0x")).expect("Unable to decode input file");
     let input = decode_prove_input(&input_bytes).expect("Unable to decode input");
 
-    init_from_bytes(WASM_BYTES, R1CS_BYTES, ZKEY_BYTES).unwrap();
-    let (pi, proof) = prove(input).unwrap();
-    assert!(verify(&pi, &proof).unwrap());
+    let (params, circom) = init_bn254_from_bytes(WASM_BYTES, R1CS_BYTES, ZKEY_BYTES, false).unwrap();
+    let (pi, proof) = prove_bn254(&params, circom, input).unwrap();
+    assert!(verify_bn254(&params.vk, &pi, &proof).unwrap());
     let (pi_bytes, proof_bytes) = proofs_to_abi_bytes(&pi, &proof).unwrap();
 
     let pi_hex = format!("0x{}", hex::encode(pi_bytes));

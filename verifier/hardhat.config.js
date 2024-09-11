@@ -8,9 +8,16 @@ const SECRET_KEY = process.env.SECRET_KEY ?? '';
 
 // SAFE: Hardhat default sk
 const LOCAL_SK1 = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const LOCAL_SK2 = "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
+const LOCAL_SK3 = "5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a";
+const LOCAL_SK4 = "7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6";
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
+  docgen: {
+    exclude: ["utils", "interface"],
+    pages: "files",
+  },
   networks: {
     hardhat: {
       mining: {
@@ -20,18 +27,22 @@ module.exports = {
     },
     localhost: {
       url: 'http://127.0.0.1:8545',
-      accounts: [LOCAL_SK1]
+      accounts: [LOCAL_SK1, LOCAL_SK2, LOCAL_SK3, LOCAL_SK4]
     },
-    holesky: {
-      url: 'https://1rpc.io/holesky',
+    testnet: {
+      url: 'https://linea-testnet-zytron.zypher.game',
       accounts: [SECRET_KEY]
     },
-    sepolia: {
-      url: 'https://rpc.sepolia.org',
+    mainnet: {
+      url: 'https://linea-mainnet-zytron.zypher.game',
       accounts: [SECRET_KEY]
     },
-    opbnbtestnet: {
-      url: 'https://opbnb-testnet-rpc.bnbchain.org',
+    l2testnet: {
+      url: 'https://rpc.sepolia.linea.build',
+      accounts: [SECRET_KEY]
+    },
+    l2: {
+      url: 'https://rpc.linea.build',
       accounts: [SECRET_KEY]
     },
   },

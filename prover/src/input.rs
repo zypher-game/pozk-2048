@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use ethabi::{decode, encode, ethereum_types::U256, ParamType, Token};
 use num_bigint::{BigInt, Sign};
 use serde::{Deserialize, Serialize};
-use zypher_circom_compat::bls12_381::Input;
+use ark_circom::zkp::Input;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Game2048Input {
