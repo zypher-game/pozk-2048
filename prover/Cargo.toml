@@ -11,9 +11,9 @@ num-bigint = "=0.4.3"
 bincode = "1.3"
 hex = "0.4"
 ethabi = "18.0"
+tokio = "1.39"
 ark-bn254 = { version = "0.4", features = ["curve"] }
 ark-ff = { version = "0.4", features = ["asm"] }
 ark-ec = { version = "0.4" }
-zypher-circom-compat = { git = "https://github.com/zypher-game/zypher-circom-compat" }
-
-
+ark-circom = { git = "https://github.com/zypher-game/circom-compat" }
+# ark-circom = { path = "../../../circom-compat" }
