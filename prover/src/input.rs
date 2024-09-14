@@ -23,11 +23,6 @@ pub struct Game2048Input {
 impl Game2048Input {
     #[allow(dead_code)]
     pub fn to_hex(&self) -> String {
-        let mut board = vec![];
-        for x in self.board.iter() {
-            board.push(Token::Bytes(x.to_vec()));
-        }
-
         let mut packed_board = vec![];
         for x in self.packed_board.iter() {
             packed_board.push(Token::Uint(U256::from_dec_str(x).unwrap()))
@@ -36,15 +31,12 @@ impl Game2048Input {
         let packed_dir = Token::Uint(U256::from_dec_str(&self.packed_dir).unwrap());
         let address = Token::Uint(U256::from_dec_str(&self.address).unwrap());
         let nonce = Token::Uint(U256::from_dec_str(&self.nonce).unwrap());
-        let direction = Token::Bytes(self.direction.clone());
         let step = Token::Uint(U256::from(self.step));
         let step_after = Token::Uint(U256::from(self.step_after));
 
         let bytes = encode(&[
-            Token::Array(board),
             Token::Array(packed_board),
             packed_dir,
-            direction,
             address,
             nonce,
             step,
@@ -54,17 +46,46 @@ impl Game2048Input {
     }
 }
 
+const BOARD_STEP: u32 = 32;
+const BOARD_LEN: usize = 16;
+const DIR_STEP: u32 = 4;
+const DIR_LEN: usize = 60;
+
+fn unpack(t: Token, step: u32, len: usize) -> Vec<BigInt> {
+    let mut d = t.into_uint().unwrap_or(U256::zero());
+    let step = U256::from(step);
+    let mut items = vec![];
+
+    loop {
+        if d < step {
+            items.push(BigInt::from(d.as_u64()));
+            break;
+        }
+        let (next, n) = d.div_mod(step);
+
+        d = next;
+        items.push(BigInt::from(n.as_u64()));
+    }
+
+    if items.len() < len {
+        for _ in items.len()..len {
+            items.push(BigInt::from(0));
+        }
+    }
+
+    items.reverse();
+    return items;
+}
+
 pub fn decode_prove_input(bytes: &[u8]) -> Result<Input, anyhow::Error> {
     let input_tokens = decode(
         &[
-            ParamType::Array(Box::new(ParamType::Bytes)),
-            ParamType::Array(Box::new(ParamType::Uint(256))),
-            ParamType::Uint(256),
-            ParamType::Bytes,
-            ParamType::Uint(256),
-            ParamType::Uint(256),
-            ParamType::Uint(256),
-            ParamType::Uint(256),
+            ParamType::Array(Box::new(ParamType::Uint(256))), // packed_board
+            ParamType::Uint(256),                             // packed_dir
+            ParamType::Uint(256),                             // address
+            ParamType::Uint(256),                             // nonce
+            ParamType::Uint(256),                             // step
+            ParamType::Uint(256),                             // step_after
         ],
         bytes,
     )?;
@@ -75,29 +96,21 @@ pub fn decode_prove_input(bytes: &[u8]) -> Result<Input, anyhow::Error> {
         BigInt::from_bytes_be(Sign::Plus, &bytes)
     };
 
-    let f_array_bytes = |token: Token| -> Vec<BigInt> {
-        let token = token.into_array().unwrap();
-        let mut tmp = vec![];
-        for x in token {
-            for y in x.into_bytes().unwrap() {
-                tmp.push(BigInt::from(y))
-            }
-        }
-        tmp
-    };
-
-    let board = f_array_bytes(input_tokens[0].clone());
+    let mut board = vec![];
     let mut packed_board = vec![];
-    for x in input_tokens[1].clone().into_array().unwrap() {
-        packed_board.push(f_uint(x))
+    for x in input_tokens[0].clone().into_array().unwrap() {
+        board.extend(unpack(x.clone(), BOARD_STEP, BOARD_LEN));
+        packed_board.push(f_uint(x));
     }
-    let packed_dir = f_uint(input_tokens[2].clone());
-    let direction = input_tokens[3].clone().into_bytes().unwrap();
-    let direction = direction.iter().map(|x| BigInt::from(*x)).collect();
-    let address = f_uint(input_tokens[4].clone());
-    let nonce = f_uint(input_tokens[5].clone());
-    let step = f_uint(input_tokens[6].clone());
-    let step_after = f_uint(input_tokens[7].clone());
+
+    let packed_token = input_tokens[1].clone();
+    let direction = unpack(packed_token.clone(), DIR_STEP, DIR_LEN);
+    let packed_dir = f_uint(packed_token);
+
+    let address = f_uint(input_tokens[2].clone());
+    let nonce = f_uint(input_tokens[3].clone());
+    let step = f_uint(input_tokens[4].clone());
+    let step_after = f_uint(input_tokens[5].clone());
 
     let mut maps = HashMap::new();
     maps.insert("board".to_string(), board);
@@ -115,8 +128,53 @@ pub fn decode_prove_input(bytes: &[u8]) -> Result<Input, anyhow::Error> {
 #[cfg(test)]
 mod test {
     use crate::input::decode_prove_input;
+    use ethabi::ethereum_types::U256;
 
     use super::Game2048Input;
+
+    fn pack_board(board: &[u8]) -> U256 {
+        let mut packed = U256::zero();
+        let step = U256::from(32u32);
+        for b in board {
+            packed = packed * step + U256::from(*b);
+        }
+        return packed;
+    }
+
+    fn pack_direction(directions: &[u8]) -> U256 {
+        let mut packed = U256::zero();
+        let step = U256::from(4u32);
+        for d in directions {
+            packed = packed * step + U256::from(*d);
+        }
+        return packed;
+    }
+
+    fn unpack_direction(directions: &str) -> Vec<u8> {
+        let mut d = U256::from_dec_str(directions).unwrap();
+        let step = U256::from(4u32);
+        let mut items = vec![];
+
+        loop {
+            if d < step {
+                items.push(d.as_u64() as u8);
+                break;
+            }
+            let (next, n) = d.div_mod(step);
+
+            d = next;
+            items.push(n.as_u64() as u8);
+        }
+        if items.len() < 60 {
+            for _ in items.len()..60 {
+                items.push(0);
+            }
+        }
+        items.reverse();
+        println!("{:?}", items);
+
+        return items;
+    }
 
     #[test]
     fn test_serialize() {
@@ -137,6 +195,16 @@ mod test {
         "##;
 
         let input: Game2048Input = serde_json::from_str(input).unwrap();
+        for b in &input.board {
+            println!("{}", pack_board(b));
+        }
+        println!("{:?}", input.packed_board);
+        println!("{}", pack_direction(&input.direction));
+        println!("{}", input.packed_dir);
+
+        println!("{:?}", input.direction);
+        unpack_direction(&input.packed_dir);
+
         let hex = input.to_hex();
         println!("{}", hex);
 
