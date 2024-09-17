@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
+use ark_circom::zkp::Input;
 use ethabi::{decode, encode, ethereum_types::U256, ParamType, Token};
 use num_bigint::{BigInt, Sign};
 use serde::{Deserialize, Serialize};
-use ark_circom::zkp::Input;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Game2048Input {
@@ -18,32 +18,6 @@ pub struct Game2048Input {
     pub step: u64,
     #[serde(rename = "stepAfter")]
     pub step_after: u64,
-}
-
-impl Game2048Input {
-    #[allow(dead_code)]
-    pub fn to_hex(&self) -> String {
-        let mut packed_board = vec![];
-        for x in self.packed_board.iter() {
-            packed_board.push(Token::Uint(U256::from_dec_str(x).unwrap()))
-        }
-
-        let packed_dir = Token::Uint(U256::from_dec_str(&self.packed_dir).unwrap());
-        let address = Token::Uint(U256::from_dec_str(&self.address).unwrap());
-        let nonce = Token::Uint(U256::from_dec_str(&self.nonce).unwrap());
-        let step = Token::Uint(U256::from(self.step));
-        let step_after = Token::Uint(U256::from(self.step_after));
-
-        let bytes = encode(&[
-            Token::Array(packed_board),
-            packed_dir,
-            address,
-            nonce,
-            step,
-            step_after,
-        ]);
-        format!("0x{}", hex::encode(&bytes))
-    }
 }
 
 const BOARD_STEP: u32 = 32;
@@ -77,18 +51,48 @@ fn unpack(t: Token, step: u32, len: usize) -> Vec<BigInt> {
     return items;
 }
 
-pub fn decode_prove_input(bytes: &[u8]) -> Result<Input, anyhow::Error> {
-    let input_tokens = decode(
-        &[
+#[allow(dead_code)]
+pub fn encode_prove_inputs(inputs: &[Game2048Input]) -> String {
+    let mut t_inputs = vec![];
+    for input in inputs {
+        let mut packed_board = vec![];
+        for x in input.packed_board.iter() {
+            packed_board.push(Token::Uint(U256::from_dec_str(x).unwrap()))
+        }
+
+        let packed_dir = Token::Uint(U256::from_dec_str(&input.packed_dir).unwrap());
+        let address = Token::Uint(U256::from_dec_str(&input.address).unwrap());
+        let nonce = Token::Uint(U256::from_dec_str(&input.nonce).unwrap());
+        let step = Token::Uint(U256::from(input.step));
+        let step_after = Token::Uint(U256::from(input.step_after));
+
+        t_inputs.push(Token::FixedArray(vec![
+            Token::Array(packed_board),
+            packed_dir,
+            address,
+            nonce,
+            step,
+            step_after,
+        ]));
+    }
+
+    let bytes = encode(&[Token::Array(t_inputs)]);
+    format!("0x{}", hex::encode(&bytes))
+}
+
+pub fn decode_prove_inputs(bytes: &[u8]) -> Result<Vec<Input>, anyhow::Error> {
+    let mut input_tokens = decode(
+        &[ParamType::Array(Box::new(ParamType::Tuple(vec![
             ParamType::Array(Box::new(ParamType::Uint(256))), // packed_board
             ParamType::Uint(256),                             // packed_dir
             ParamType::Uint(256),                             // address
             ParamType::Uint(256),                             // nonce
             ParamType::Uint(256),                             // step
             ParamType::Uint(256),                             // step_after
-        ],
+        ])))],
         bytes,
     )?;
+    let tokens = input_tokens.pop().unwrap().into_array().unwrap();
 
     let f_uint = |token: Token| -> BigInt {
         let mut bytes = [0u8; 32];
@@ -96,41 +100,45 @@ pub fn decode_prove_input(bytes: &[u8]) -> Result<Input, anyhow::Error> {
         BigInt::from_bytes_be(Sign::Plus, &bytes)
     };
 
-    let mut board = vec![];
-    let mut packed_board = vec![];
-    for x in input_tokens[0].clone().into_array().unwrap() {
-        board.extend(unpack(x.clone(), BOARD_STEP, BOARD_LEN));
-        packed_board.push(f_uint(x));
+    let mut inputs = vec![];
+    for t_token in tokens {
+        let token = t_token.into_tuple().unwrap();
+        let mut board = vec![];
+        let mut packed_board = vec![];
+        for x in token[0].clone().into_array().unwrap() {
+            board.extend(unpack(x.clone(), BOARD_STEP, BOARD_LEN));
+            packed_board.push(f_uint(x));
+        }
+
+        let packed_token = token[1].clone();
+        let direction = unpack(packed_token.clone(), DIR_STEP, DIR_LEN);
+        let packed_dir = f_uint(packed_token);
+
+        let address = f_uint(token[2].clone());
+        let nonce = f_uint(token[3].clone());
+        let step = f_uint(token[4].clone());
+        let step_after = f_uint(token[5].clone());
+
+        let mut maps = HashMap::new();
+        maps.insert("board".to_string(), board);
+        maps.insert("packedBoard".to_string(), packed_board);
+        maps.insert("packedDir".to_string(), vec![packed_dir]);
+        maps.insert("direction".to_string(), direction);
+        maps.insert("address".to_string(), vec![address]);
+        maps.insert("step".to_string(), vec![step]);
+        maps.insert("stepAfter".to_string(), vec![step_after]);
+        maps.insert("nonce".to_string(), vec![nonce]);
+
+        inputs.push(Input { maps });
     }
 
-    let packed_token = input_tokens[1].clone();
-    let direction = unpack(packed_token.clone(), DIR_STEP, DIR_LEN);
-    let packed_dir = f_uint(packed_token);
-
-    let address = f_uint(input_tokens[2].clone());
-    let nonce = f_uint(input_tokens[3].clone());
-    let step = f_uint(input_tokens[4].clone());
-    let step_after = f_uint(input_tokens[5].clone());
-
-    let mut maps = HashMap::new();
-    maps.insert("board".to_string(), board);
-    maps.insert("packedBoard".to_string(), packed_board);
-    maps.insert("packedDir".to_string(), vec![packed_dir]);
-    maps.insert("direction".to_string(), direction);
-    maps.insert("address".to_string(), vec![address]);
-    maps.insert("step".to_string(), vec![step]);
-    maps.insert("stepAfter".to_string(), vec![step_after]);
-    maps.insert("nonce".to_string(), vec![nonce]);
-
-    Ok(Input { maps })
+    Ok(inputs)
 }
 
 #[cfg(test)]
 mod test {
-    use crate::input::decode_prove_input;
+    use super::*;
     use ethabi::ethereum_types::U256;
-
-    use super::Game2048Input;
 
     fn pack_board(board: &[u8]) -> U256 {
         let mut packed = U256::zero();
@@ -205,11 +213,11 @@ mod test {
         println!("{:?}", input.direction);
         unpack_direction(&input.packed_dir);
 
-        let hex = input.to_hex();
+        let hex = encode_prove_inputs(&[input.clone(), input]);
         println!("{}", hex);
 
         let input_hex = hex.trim_start_matches("0x");
         let input_bytes = hex::decode(input_hex).expect("Unable to decode input file");
-        decode_prove_input(&input_bytes).expect("Unable to decode input");
+        decode_prove_inputs(&input_bytes).expect("Unable to decode input");
     }
 }

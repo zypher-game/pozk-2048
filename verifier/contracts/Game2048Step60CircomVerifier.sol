@@ -65,26 +65,38 @@ contract Game2048Step60CircomVerifier is Initializable, OwnableUpgradeable, ERC1
         return interfaceId == type(IVerifier).interfaceId || super.supportsInterface(interfaceId);
     }
 
-    function name() external view returns (string memory) {
+    function name() external pure returns (string memory) {
         return "2048";
     }
 
     /// show how to serialize/deseriaze the inputs params
     /// e.g. "uint256,bytes32,string,bytes32[],address[],ipfs"
     function inputs() external pure returns (string memory) {
-        return "[bytes[],uint256[],uint256,bytes,uint256,uint256,uint256,uint256]";
+        return "(bytes[],uint256[],uint256,bytes,uint256,uint256,uint256,uint256)[]";
     }
 
     /// show how to serialize/deserialize the publics params
     /// e.g. "uint256,bytes32,string,bytes32[],address[],ipfs"
     function publics() external pure returns (string memory) {
-        return "uint256[7]";
+        return "uint256[7][]";
     }
 
-    function verify(bytes calldata publics, bytes calldata proof) external view returns (bool) {
-        uint[7] memory _pubSignals = abi.decode(publics, (uint[7]));
-        (uint[2] memory _pA, uint[2][2] memory _pB, uint[2] memory _pC) = abi.decode(proof, (uint[2], uint[2][2], uint[2]));
-        return this.verifyProof(_pA, _pB, _pC, _pubSignals);
+    struct Proof {
+        uint[2] _pA;
+        uint[2][2] _pB;
+        uint[2] _pC;
+    }
+
+    function verify(bytes calldata _publics, bytes calldata _proof) external view returns (bool) {
+        uint[7][] memory mPublics = abi.decode(_publics, (uint[7][]));
+        Proof[] memory mProofs = abi.decode(_proof, (Proof[]));
+        for (uint i = 0; i < mPublics.length; i++) {
+            bool res = this.verifyProof(mProofs[i]._pA, mProofs[i]._pB, mProofs[i]._pC, mPublics[i]);
+            if (!res) {
+                return false;
+            }
+        }
+        return true;
     }
 
     function verifyProof(uint[2] calldata _pA, uint[2][2] calldata _pB, uint[2] calldata _pC, uint[7] calldata _pubSignals) public view returns (bool) {
