@@ -1,3 +1,0 @@
-prover/materials/game2048_60.zkey filter=lfs diff=lfs merge=lfs -text
-prover/materials/game2048_60.r1cs filter=lfs diff=lfs merge=lfs -text
-prover/materials/game2048_60.wasm filter=lfs diff=lfs merge=lfs -text

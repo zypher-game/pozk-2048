@@ -6,9 +6,9 @@ use ark_circom::zkp::{
 };
 use input::decode_prove_inputs;
 
-const WASM_BYTES: &[u8] = include_bytes!("../materials/game2048_60.wasm");
-const R1CS_BYTES: &[u8] = include_bytes!("../materials/game2048_60.r1cs");
-const ZKEY_BYTES: &[u8] = include_bytes!("../materials/game2048_60.zkey");
+const WASM_BYTES: &[u8] = include_bytes!("../../../materials/game2048_60.wasm");
+const R1CS_BYTES: &[u8] = include_bytes!("../../../materials/game2048_60.r1cs");
+const ZKEY_BYTES: &[u8] = include_bytes!("../../../materials/game2048_60.zkey");
 
 // const WASM_BYTES: &[u8] = include_bytes!("../materials/game2048_60_bls.wasm");
 // const R1CS_BYTES: &[u8] = include_bytes!("../materials/game2048_60_bls.r1cs");
