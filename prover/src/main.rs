@@ -5,7 +5,6 @@ use ark_circom::zkp::{
     prove_bn254, verify_bn254,
 };
 use input::decode_prove_inputs;
-use std::fs::{read_to_string, write};
 
 const WASM_BYTES: &[u8] = include_bytes!("../materials/game2048_60.wasm");
 const R1CS_BYTES: &[u8] = include_bytes!("../materials/game2048_60.r1cs");
@@ -19,12 +18,7 @@ const ZKEY_BYTES: &[u8] = include_bytes!("../materials/game2048_60.zkey");
 #[tokio::main]
 async fn main() {
     let input_path = std::env::var("INPUT").expect("env INPUT missing");
-    let output_path = std::env::var("OUTPUT").expect("env OUTPUT missing");
-    let proof_path = std::env::var("PROOF").expect("env PROOF missing");
-
-    let input_hex = read_to_string(input_path).expect("Unable to read input file");
-    let input_bytes =
-        hex::decode(input_hex.trim_start_matches("0x")).expect("Unable to decode input file");
+    let input_bytes = reqwest::get(&input_path).await.unwrap().bytes().await.unwrap();
     let inputs = decode_prove_inputs(&input_bytes).expect("Unable to decode inputs");
 
     let mut pis = vec![];
@@ -39,9 +33,11 @@ async fn main() {
     }
     let (pi_bytes, proof_bytes) = multiple_proofs_to_abi_bytes(&pis, &proofs).unwrap();
 
-    let pi_hex = format!("0x{}", hex::encode(pi_bytes));
-    write(output_path, pi_hex).expect("Unable to create output file");
+    let mut bytes = vec![];
+    bytes.extend((pi_bytes.len() as u32).to_be_bytes());
+    bytes.extend(pi_bytes);
+    bytes.extend(proof_bytes);
 
-    let proof_hex = format!("0x{}", hex::encode(proof_bytes));
-    write(proof_path, proof_hex).expect("Unable to create proof file");
+    let client = reqwest::Client::new();
+    client.post(&input_path).body(bytes).send().await.unwrap();
 }
