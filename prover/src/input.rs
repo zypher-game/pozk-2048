@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
+use anyhow::anyhow;
+use ark_bn254::Fr;
 use ark_circom::zkp::Input;
+use ark_ff::PrimeField;
 use ethabi::{decode, encode, ethereum_types::U256, ParamType, Token};
 use num_bigint::{BigInt, Sign};
 use serde::{Deserialize, Serialize};
@@ -133,6 +136,38 @@ pub fn decode_prove_inputs(bytes: &[u8]) -> Result<Vec<Input>, anyhow::Error> {
     }
 
     Ok(inputs)
+}
+
+pub fn decode_prove_publics(bytes: &[u8]) -> Result<Vec<Vec<Fr>>, anyhow::Error> {
+    let mut input_tokens = decode(
+        &[ParamType::Array(Box::new(ParamType::FixedArray(
+            Box::new(ParamType::Uint(256)),
+            7,
+        )))],
+        bytes,
+    )?;
+    let tokens = input_tokens
+        .pop()
+        .ok_or_else(|| anyhow!("Infallible point"))?
+        .into_array()
+        .ok_or_else(|| anyhow!("Infallible point"))?;
+    let mut publics = vec![];
+    for token in tokens {
+        let ffs = token
+            .into_fixed_array()
+            .ok_or_else(|| anyhow!("Infallible point"))?;
+        let mut public = vec![];
+        for fs in ffs {
+            let mut bytes = [0u8; 32];
+            fs.into_uint().unwrap().to_big_endian(&mut bytes);
+            let f = Fr::from_be_bytes_mod_order(&bytes);
+            public.push(f);
+        }
+
+        publics.push(public);
+    }
+
+    Ok(publics)
 }
 
 #[cfg(test)]
